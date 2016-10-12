@@ -28,8 +28,9 @@ namespace XNA_Test_001
         JointData[] leftJoints = new JointData[3];
         JointData[] rightJoints = new JointData[3];
         SpriteFont font;
-        Vector2 offset;
-        double cnt = 0f, n = 1f, fps = 60f;
+        Vector2 offset, resolution = new Vector2(12f, 8f);
+        double fps = 60f;
+        BackgroundAnimation bkgAni;
 
         #endregion
 
@@ -38,8 +39,8 @@ namespace XNA_Test_001
             graphics = new GraphicsDeviceManager(this);
 
             //Dimensions of output window
-            graphics.PreferredBackBufferHeight = 800;
-            graphics.PreferredBackBufferWidth = 1200;
+            graphics.PreferredBackBufferHeight = (int)(resolution.Y * 100f);
+            graphics.PreferredBackBufferWidth = (int)(resolution.X * 100f);
 
             Content.RootDirectory = "Content";
         }
@@ -93,7 +94,7 @@ namespace XNA_Test_001
         protected override void LoadContent()
         {
             spriteBatch = new SpriteBatch(GraphicsDevice);
-           
+
             if (world == null)
                 world = new World(new Vector2(0, 1f));
             else
@@ -184,6 +185,9 @@ namespace XNA_Test_001
 
             #endregion
 
+            bkgAni = new BackgroundAnimation(new Texture2D[] { groundTexture, Content.Load<Texture2D>("bkg")}, 
+                                             new Vector2[] { new Vector2(6f, 7.5f),new Vector2(0f, 2.7f) }, resolution, head.Position);
+
         }
 
         protected override void UnloadContent()
@@ -193,7 +197,6 @@ namespace XNA_Test_001
 
         protected override void Update(GameTime gameTime)
         {
-            cnt++;
             offset.Y = 0f;
             offset.X = -head.Position.X + 5f;
             //offset.X = head.Position.X % 800;
@@ -240,9 +243,11 @@ namespace XNA_Test_001
         protected override void Draw(GameTime gameTime)
         {
             //Console.WriteLine(rect1.Position.X + "   " + rect1.Position.Y);
-            GraphicsDevice.Clear(Color.Aqua);
+            GraphicsDevice.Clear(Color.White);
 
             spriteBatch.Begin();
+
+            bkgAni.Draw(head.Position, spriteBatch);
 
             DrawBody(boneTexture, lb1);
             DrawBody(boneTexture, lb2);
@@ -254,15 +259,9 @@ namespace XNA_Test_001
             DrawBody(boneTexture, rb2);
             DrawBody(boneTexture, rb3);
 
-            DrawBody(groundTexture, ground);
+            //DrawBody(groundTexture, ground);
 
-            spriteBatch.DrawString(font, cnt / n + "", new Vector2(0f, 50), Color.Red);
-            n++;
-            if (n > 1000)
-            {
-                cnt = 1;
-                n = 1;
-            }
+            spriteBatch.DrawString(font, head.Position.X + "", new Vector2(0f, 50), Color.Red);
 
             spriteBatch.End();
 
@@ -324,22 +323,58 @@ namespace XNA_Test_001
 
     public class BackgroundAnimation
     {
+        #region Declarations
+
         Texture2D[] texture;    // Background Sprites
         Vector2[] position;     // Postion of Each Image
         int length { get; }     // No of layers
+        Vector2 resolution, posRef; // Resolution of output screen
+        float xRef; // Reference Line
 
-        public BackgroundAnimation(Texture2D[] src, Vector2[] pos)
+        #endregion
+
+        public BackgroundAnimation(Texture2D[] texture, Vector2[] position, Vector2 resolution, Vector2 posRef)
         {
-            texture = src;  
-            length = src.Length;   
-            pos = new Vector2[length];
+            this.texture = texture;  
+            this.length = texture.Length;   
+            this.position = new Vector2[length];
             for (int i = 0; i < length; i++)
-                position[i] = pos[i];
+                this.position[i] = position[i];
+            this.resolution = resolution;
+            xRef = 0;
+            this.posRef = posRef;
         }
 
-        public void Update(float dX)
+        public void Draw(Vector2 currPostion, SpriteBatch spriteBatch)
         {
-           
+            xRef += posRef.X - currPostion.X;
+            posRef = currPostion;
+            for(int i = length - 1; i >= 0; i--)
+            {
+                xRef /= (float)(i + 1);
+                int n = (int)(xRef / (texture[i].Width / 100f));
+                for(int j = 0; j < 2; j++)
+                {
+                    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - (n + j) * texture[i].Width / 100f, position[i].Y)), Color.White);
+                    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + (n + j) * texture[i].Width / 100f, position[i].Y)), Color.White);
+                }
+                //if (xRef >= 0 && xRef <= resolution.X)
+                //{
+                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef, position[i].Y)), Color.White);
+                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - texture[i].Width / 100f, position[i].Y)), Color.White);
+                //}
+                //else if (xRef >= resolution.X)
+                //{
+                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - (n + 1) * texture[i].Width / 100f, position[i].Y)), Color.White);
+                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - (n + 2) * texture[i].Width / 100f, position[i].Y)), Color.White);
+                //}
+                //if (xRef <= 0)
+                //{
+                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + n * texture[i].Width / 100f, position[i].Y)), Color.White);
+                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + (n + 1)* texture[i].Width / 100f, position[i].Y)), Color.White);
+                //}
+                xRef *= (float)(i + 1);
+            }
         }
     }
 }

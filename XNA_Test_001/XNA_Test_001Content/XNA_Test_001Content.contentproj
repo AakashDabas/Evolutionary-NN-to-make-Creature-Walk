@@ -61,8 +61,15 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="clouds.png">
-      <Name>clouds</Name>
+    <Compile Include="bkg.jpg">
+      <Name>bkg</Name>
+      <Importer>TextureImporter</Importer>
+      <Processor>TextureProcessor</Processor>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="sun.jpg">
+      <Name>sun</Name>
       <Importer>TextureImporter</Importer>
       <Processor>TextureProcessor</Processor>
     </Compile>
