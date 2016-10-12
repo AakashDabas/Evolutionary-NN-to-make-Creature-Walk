@@ -15,7 +15,7 @@ using FarseerPhysics;
 
 namespace XNA_Test_001
 {
-       public class Game1 : Game
+    public class Game1 : Game
     {
 
         #region Declarations
@@ -319,6 +319,27 @@ namespace XNA_Test_001
         public float Get()
         {
             return currAngle;
+        }
+    }
+
+    public class BackgroundAnimation
+    {
+        Texture2D[] texture;    // Background Sprites
+        Vector2[] position;     // Postion of Each Image
+        int length { get; }     // No of layers
+
+        public BackgroundAnimation(Texture2D[] src, Vector2[] pos)
+        {
+            texture = src;  
+            length = src.Length;   
+            pos = new Vector2[length];
+            for (int i = 0; i < length; i++)
+                position[i] = pos[i];
+        }
+
+        public void Update(float dX)
+        {
+           
         }
     }
 }
