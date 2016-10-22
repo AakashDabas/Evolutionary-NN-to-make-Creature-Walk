@@ -1,6 +1,6 @@
 using System;
 
-namespace XNA_Test_001
+namespace Walk_ANN
 {
 #if WINDOWS || XBOX
     static class Program

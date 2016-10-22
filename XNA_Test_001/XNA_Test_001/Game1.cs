@@ -13,7 +13,7 @@ using FarseerPhysics.Dynamics.Joints;
 using FarseerPhysics.Factories;
 using FarseerPhysics;
 
-namespace XNA_Test_001
+namespace Walk_ANN
 {
     public class Game1 : Game
     {
