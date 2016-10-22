@@ -29,7 +29,7 @@ namespace XNA_Test_001
         JointData[] rightJoints = new JointData[3];
         SpriteFont font;
         Vector2 offset, resolution = new Vector2(12f, 8f);
-        double fps = 60f;
+        double fps = 15f;
         BackgroundAnimation bkgAni;
 
         #endregion
@@ -100,7 +100,7 @@ namespace XNA_Test_001
             else
                 world.Clear();
 
-            this.TargetElapsedTime = TimeSpan.FromSeconds(1f / fps);
+            this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (fps * 60f));
 
             #region Loads Content Data
 
@@ -156,11 +156,11 @@ namespace XNA_Test_001
                 rightJoints[i] = new JointData();
             }
 
-            leftJoints[0].CreateJoint(world, headTexture, boneTexture, head, ref lb1, true, DegreeToRad(30f), DegreeToRad(-100f));
-            rightJoints[0].CreateJoint(world, headTexture, boneTexture, head, ref rb1, true, DegreeToRad(30f), DegreeToRad(-100f));
+            leftJoints[0].CreateJoint(world, headTexture, boneTexture, head, ref lb1, true, DegreeToRad(30f), DegreeToRad(-90f));
+            rightJoints[0].CreateJoint(world, headTexture, boneTexture, head, ref rb1, true, DegreeToRad(30f), DegreeToRad(-90f));
 
-            leftJoints[1].CreateJoint(world, boneTexture, boneTexture, lb1, ref lb2, true, DegreeToRad(190f), DegreeToRad(-90f));
-            rightJoints[1].CreateJoint(world, boneTexture, boneTexture, rb1, ref rb2, true, DegreeToRad(190f), DegreeToRad(-90f));
+            leftJoints[1].CreateJoint(world, boneTexture, boneTexture, lb1, ref lb2, true, DegreeToRad(160f), DegreeToRad(-10f));
+            rightJoints[1].CreateJoint(world, boneTexture, boneTexture, rb1, ref rb2, true, DegreeToRad(160f), DegreeToRad(-10f));
 
             lb3.Rotation = DegreeToRad(90f);
             rb3.Rotation = DegreeToRad(90f);
@@ -213,20 +213,16 @@ namespace XNA_Test_001
             if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.R))
             {
                 Console.Write("CLICK");
-                leftJoints[0].Set(0f);
-                leftJoints[1].Set(0f);
-                rightJoints[0].Set(0f);
-                rightJoints[1].Set(0f);
+                leftJoints[0].Update(DegreeToRad(5f));
+                rightJoints[0].Update(DegreeToRad(5f));
+                leftJoints[1].Update(DegreeToRad(-5f));
+                rightJoints[1].Update(DegreeToRad(-5f));
             }
 
-            world.Step(1f / 30f);
-            //if (rect1.Position.Y > 5)
-            //{
-            //    //rect1.ApplyForce(new Vector2(0, -100));
-            //}
+            world.Step(1 / 30f);
+
             if (Mouse.GetState().LeftButton.Equals(KeyState.Down))
             {
-                
             }
             base.Update(gameTime);
             this.IsMouseVisible = true;
@@ -292,7 +288,7 @@ namespace XNA_Test_001
             joint.MaxImpulse = 0.02f;
             upperLimit = uL;
             lowerLimit = lL;
-            joint.CollideConnected = true;
+            joint.CollideConnected = false;
         }
 
         public void Update(float val)
@@ -351,7 +347,7 @@ namespace XNA_Test_001
             posRef = currPostion;
             for(int i = length - 1; i >= 0; i--)
             {
-                xRef /= (float)(i + 1);
+                xRef /= i + 1;
                 int n = (int)(xRef / (texture[i].Width / 100f));
                 for(int j = 0; j < 2; j++)
                 {
@@ -373,7 +369,7 @@ namespace XNA_Test_001
                 //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + n * texture[i].Width / 100f, position[i].Y)), Color.White);
                 //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + (n + 1)* texture[i].Width / 100f, position[i].Y)), Color.White);
                 //}
-                xRef *= (float)(i + 1);
+                xRef *= i + 1;
             }
         }
     }

@@ -48,6 +48,10 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="FarseerPhysics XNA, Version=3.5.0.23016, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>C:\Users\entan\Downloads\Compressed\Farseer Physics Engine 3.5 Samples\Farseer Physics Engine 3.5 Samples\Farseer Physics Engine 3.5\bin\x86\Debug\FarseerPhysics XNA.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Xna.Framework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86" />
     <Reference Include="Microsoft.Xna.Framework.Game, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86" />
     <Reference Include="Microsoft.Xna.Framework.Graphics, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86" />
@@ -72,10 +76,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\..\..\..\Downloads\Compressed\Farseer Physics Engine 3.5 Samples\Farseer Physics Engine 3.5 Samples\Farseer Physics Engine 3.5\Farseer Physics XNA.csproj">
-      <Project>{0a850700-1abb-4288-a391-6726b90ebeb9}</Project>
-      <Name>Farseer Physics XNA</Name>
-    </ProjectReference>
     <ProjectReference Include="..\XNA_Test_001Content\XNA_Test_001Content.contentproj">
       <Name>XNA_Test_001Content</Name>
       <XnaReferenceType>Content</XnaReferenceType>
