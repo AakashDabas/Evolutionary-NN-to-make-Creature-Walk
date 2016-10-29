@@ -29,11 +29,11 @@ class Genome
 
     List<GeneNode> nodes = new List<GeneNode>();
     List<GeneConnection> connections = new List<GeneConnection>();
-    Dictionary<int, HashSet<int>> registeredConnection = new Dictionary<int, HashSet<int>>();
-    Random random = new Random();
     double score = 0;
-    double factor = 10f;
     int no_nodes = 0, inputSize, outputSize;
+    Random random = new Random();
+    double factor = 10f;
+    Dictionary<int, HashSet<int>> registeredConnection = new Dictionary<int, HashSet<int>>();
 
     #endregion
 
@@ -46,55 +46,101 @@ class Genome
         outputSize = output;
         inputSize = input;
         Init();
+        Display();
+    }
+
+    private void Display()
+    {
+        Dictionary<int, List<GeneConnection>> map = new Dictionary<int, List<GeneConnection>>();    // To store the graph
+        List<int> buffer = new List<int>();                 // Used for BFS
+        bool[] key = new bool[nodes.Count];
+
+        for (int i = 0; i < connections.Count; i++)  // Forms the graph of topology
+        {
+            if (map.ContainsKey(connections[i].source) == false)
+                map[connections[i].source] = new List<GeneConnection>();
+            map[connections[i].source].Add(connections[i]);
+        }
+        for (int i = 0; i < inputSize; i++)
+        {
+            buffer.Add(i);
+            if (map.ContainsKey(i) == false)
+                map[i] = new List<GeneConnection>();
+        }
+
+        int cnt = 0;
+        while (buffer.Count > 0)
+        {
+                if (map.ContainsKey(buffer[0]))
+                {
+                    foreach (GeneConnection i in map[buffer[0]])
+                        if (key[i.destination] == false)
+                        {
+                            buffer.Add(i.destination);
+                            key[i.destination] = true;
+                            cnt++;
+                        }
+                }
+            buffer.RemoveAt(0);
+        }
+
     }
 
     private void Init()
     {
         int rand_connections = random.Next(5, 20);
         for (int i = 0; i < rand_connections; i++)
-            mutate(true, true); 
+            mutate(true, true);
     }
 
-    private double Evaluation(double input, int n)
+    private double Evaluate(double input, int n)
     {
         return 1.0f / (1 + Math.Exp(input));
     }
 
     public List<double> Output(List<double> input)
     {
-        if (input.Capacity != inputSize)
+        if (input.Count != inputSize)
             Console.WriteLine("Invalid INPUT Dimension in Neural Net");
 
         Dictionary<int, List<GeneConnection>> map = new Dictionary<int, List<GeneConnection>>();    // To store the graph
         List<int> buffer = new List<int>();                 // Used for BFS
-        double[] nodesBuffer = new double[nodes.Capacity];  // Stores the output of each node
-        bool[] key = new bool[nodes.Capacity];
-        int[] no_of_inputs = new int[nodes.Capacity];
+        double[] nodesBuffer = new double[nodes.Count];  // Stores the output of each node
+        bool[] key = new bool[nodes.Count];
+        int[] no_of_inputs = new int[nodes.Count];
 
-        for (int i = 0; i < input.Capacity; i++)    // Initializes the value for input nodes
+        for (int i = 0; i < input.Count; i++)    // Initializes the value for input nodes
             nodesBuffer[i] = input[i];
 
-        for (int i = 0; i < connections.Capacity; i++)  // Forms the graph of topology
+        for (int i = 0; i < connections.Count; i++)  // Forms the graph of topology
         {
             map[connections[i].source].Add(connections[i]);
             no_of_inputs[connections[i].destination]++;
         }
 
         for (int i = 0; i < inputSize; i++)
-            buffer.Add(i);
-        while (buffer.Capacity > 0)
         {
-            foreach (GeneConnection i in map[buffer[0]])
+            buffer.Add(i);
+            if (map.ContainsKey(i) == false)
+                map[i] = new List<GeneConnection>();
+        }
+
+        while (buffer.Count > 0)
+        {
+            if (map.ContainsKey(buffer[0]))
             {
-                if(key[i.destination] == false)
+                foreach (GeneConnection i in map[buffer[0]])
                 {
-                    buffer.Add(i.destination);
-                    key[i.destination] = true;
-                }
-                nodesBuffer[buffer[0]] = Evaluate(nodesBuffer[buffer[0]], no_of_inputs[buffer[0]]);
-                if (buffer[0] >= input.Capacity)
-                {
-                    nodesBuffer[i.destination] += i.weight * nodesBuffer[buffer[0]];
+                    if (key[i.destination] == false)
+                    {
+                        buffer.Add(i.destination);
+                        key[i.destination] = true;
+                    }
+
+                    nodesBuffer[buffer[0]] = Evaluate(nodesBuffer[buffer[0]], no_of_inputs[buffer[0]]);
+
+                    if (buffer[0] >= input.Count)
+                        nodesBuffer[i.destination] += i.weight * nodesBuffer[buffer[0]];
                 }
             }
             buffer.RemoveAt(0);
@@ -110,10 +156,10 @@ class Genome
         // Change the weight of a randomly selected connection
         int n = -1;
         bool flag = false;
-        for(int i = 0; i < 10; i++)
+        for (int i = 0; i < 10; i++)
         {
-            n = random.Next() % connections.Capacity;
-            if(connections[n].status == true)
+            n = random.Next() % connections.Count;
+            if (connections[n].status == true)
             {
                 flag = true;
                 break;
@@ -127,15 +173,15 @@ class Genome
 
     private void LinkMutate()
     {
-        for(int i = 0; i < 10; i++)
+        for (int i = 0; i < 10; i++)
         {
             int n1, n2;
             while (true)
             {
                 n1 = random.Next();
                 n2 = random.Next();
-                n1 %= nodes.Capacity;
-                n2 %= nodes.Capacity;
+                n1 %= nodes.Count;
+                n2 %= nodes.Count;
                 if (nodes[n1].type == GeneNodeType.INPUT && nodes[n2].type == GeneNodeType.INPUT)
                     continue;
                 else if (nodes[n1].type == GeneNodeType.OUPUT && nodes[n2].type == GeneNodeType.OUPUT)
@@ -146,10 +192,12 @@ class Genome
             if (registeredConnection.ContainsKey(n1) == true &&
                 registeredConnection[n1].Contains(n2) == true)
                 continue;
-            connections.Add(new GeneConnection(n1, n2, random.NextDouble() * random.Next(-1, 1) * factor));
+            double wt = random.NextDouble() * factor;
+            connections.Add(new GeneConnection(n1, n2,  wt));
             if (registeredConnection.ContainsKey(n1) == false)
                 registeredConnection.Add(n1, new HashSet<int>());
             registeredConnection[n1].Add(n2);
+            break;
         }
     }
 
@@ -161,9 +209,9 @@ class Genome
         //  A -> C -> B
         //    1    W
 
-        if (connections.Capacity == 0)
+        if (connections.Count == 0)
             return;
-        int n = random.Next() % connections.Capacity;
+        int n = random.Next() % connections.Count;
         connections[n].FlipStatus();    // A X B
         nodes.Add(new GeneNode(no_nodes, GeneNodeType.HIDDEN));
         connections.Add(new GeneConnection(connections[n].source, no_nodes, 1f));    // A -> C
@@ -173,12 +221,12 @@ class Genome
         registeredConnection[connections[n].source].Add(no_nodes);
         no_nodes++;
     }
-    
+
     private void EnableDisableMutation()
     {
-        if (connections.Capacity == 0)
+        if (connections.Count == 0)
             return;
-        int n = random.Next() % connections.Capacity;
+        int n = random.Next() % connections.Count;
         connections[n].FlipStatus();
     }
 
@@ -199,7 +247,7 @@ class Genome
                         LinkMutate();
                         flag = false;
                     }
-                    else if (connections.Capacity > 0)
+                    else if (connections.Count > 0 && false)
                     {
                         NodeMutate();
                         flag = false;
@@ -212,12 +260,12 @@ class Genome
                         flag = false;
                         PointMutate();
                     }
-                    else if (randomTmp < 0.50f && connections.Capacity > 0)
+                    else if (randomTmp < 0.50f && connections.Count > 0)
                     {
                         flag = false;
                         LinkMutate();
                     }
-                    else if (randomTmp < 0.75f && connections.Capacity > 0)
+                    else if (randomTmp < 0.75f && connections.Count > 0)
                     {
                         flag = false;
                         NodeMutate();
@@ -259,7 +307,7 @@ class GeneConnection
     public double weight;                   // Weight between source and destination nodes
     public bool status;             // Status whether current gene is enabled or disabled
     static public int innovation_Uni = 0;   // Last Innovation No
-    Dictionary<int, Dictionary<int, int>> innovationHistory = new Dictionary<int, Dictionary<int, int> >();
+    Dictionary<int, Dictionary<int, int>> innovationHistory = new Dictionary<int, Dictionary<int, int>>();
 
     #endregion;
 

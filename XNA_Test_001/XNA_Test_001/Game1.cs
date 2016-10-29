@@ -23,7 +23,7 @@ namespace Walk_ANN
         JointData[] rightJoints = new JointData[3];
         SpriteFont font;
         Vector2 offset, resolution = new Vector2(12f, 8f);
-        double fps = 15f;
+        double fps = 1f;
         BackgroundAnimation bkgAni;
 
         #endregion
@@ -42,6 +42,11 @@ namespace Walk_ANN
         protected override void Initialize()
         {
             base.Initialize();
+        }
+
+        public void start()
+        {
+            Run();
         }
 
         private float ConvertPixelToFloat(int a)

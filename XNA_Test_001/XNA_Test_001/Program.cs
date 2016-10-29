@@ -1,21 +1,18 @@
 using System;
+using System.Threading;
+using GeneticNN;
 
 namespace Walk_ANN
 {
 #if WINDOWS || XBOX
     static class Program
     {
-        /// <summary>
-        /// The main entry point for the application.
-        /// </summary>
         static void Main(string[] args)
         {
-            using (Game1 game = new Game1())
-            {
-                game.Run();
-            }
+            GeneticNeuralNetwork neuralObj = new GeneticNeuralNetwork(10, 10, 1);
+            Game1 gameObj = new Game1();
+            gameObj.start();
         }
     }
 #endif
 }
-
