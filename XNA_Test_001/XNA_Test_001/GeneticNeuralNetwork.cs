@@ -16,8 +16,9 @@ namespace GeneticNN
         SortedDictionary<double, Genome> rankedGenome = new SortedDictionary<double, Genome>();
         List<List<Genome>> species = new List<List<Genome>>();
         public int generation = 0;
-        int currentGenome = 0, currentSpecies = 0;
+        int currentGenome = 0;
         long currentSample = 0;
+        Random random = new Random();
 
         public Message msg = Message.RESET;
 
@@ -49,6 +50,8 @@ namespace GeneticNN
 
         public void UpdatePool(double score)
         {
+            msg = Message.ITERATE;
+
             genomePool[currentGenome].score = score;
 
             while (rankedGenome.ContainsKey(score))
@@ -88,6 +91,8 @@ namespace GeneticNN
                 #endregion
 
                 #region Crossing
+
+                genomePool.Clear();
 
                 for (int i = 0; i < species.Count; i++)
                     Cross(species[i]);
@@ -136,10 +141,58 @@ namespace GeneticNN
             else
                 return false;
         }
-        
+
         void Cross(List<Genome> genomePool)
         {
+            int idx = (int)Math.Ceiling(genomePool.Count * 0.2f);
 
+            if (genomePool.Count == 1)
+            {
+                genomePool[0].Mutate(true);
+                this.genomePool.Add(genomePool[0]);
+                return;
+            }
+            else
+                for (int i = 0; i < idx; i++)
+                    this.genomePool.Add(genomePool[i]);
+
+            for (int i = idx + 1; i < genomePool.Count; i++)
+            {
+                int rIdx = random.Next() % idx;
+                Genome g1, g2;
+                if (genomePool[rIdx].score > genomePool[i].score)
+                {
+                    g1 = genomePool[rIdx];
+                    g2 = genomePool[i];
+                }
+                else
+                {
+                    g1 = genomePool[i];
+                    g2 = genomePool[rIdx];
+                }
+
+                Dictionary<int, int> innvoationIdx = new Dictionary<int, int>();
+
+                for (int j = 0; j < g1.connections.Count; j++)
+                    innvoationIdx[g1.connections[j].innovation_no] = j;
+
+                for (int j = 0; j < g2.connections.Count; j++)
+                {
+                    int idxGene = g2.connections[j].innovation_no;
+                    if (innvoationIdx.ContainsKey(idxGene))
+                    {
+                        int randomVal = random.Next() % 2;
+                        if (randomVal == 0)
+                            g1.connections[idxGene].weight = g1.connections[idxGene].weight;
+                        else
+                            g1.connections[idxGene].weight = g2.connections[j].weight;
+                    }
+                }
+
+                g1.Mutate(true);
+
+                this.genomePool.Add(g1);
+            }
         }
     }
 }
@@ -173,7 +226,7 @@ class Genome
     {
         int rand_connections = random.Next(5, 20);
         for (int i = 0; i < rand_connections; i++)
-            mutate(true, true);
+            Mutate(true, true);
     }
 
     private double Evaluate(double input, int n)
@@ -315,7 +368,7 @@ class Genome
         connections[n].FlipStatus();
     }
 
-    public void mutate(bool flag = false, bool initCall = false)
+    public void Mutate(bool flag = false, bool initCall = false)
     {
         // Decides wether to mutate or not
         if (random.NextDouble() < 0.05)
