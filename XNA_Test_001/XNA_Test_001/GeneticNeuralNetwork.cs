@@ -47,7 +47,7 @@ namespace GeneticNN
             return genomePool[currentGenome].Output(input);
         }
 
-        public void SetScore(double score)
+        public void UpdatePool(double score)
         {
             genomePool[currentGenome].score = score;
 
@@ -59,33 +59,38 @@ namespace GeneticNN
             currentGenome++;
             currentSample = 0;
 
-            #region Speciation
 
             if (currentGenome == genomePool.Count)
             {
                 generation++;
                 currentGenome = 0;
 
-                species.Clear();
+                #region Speciation
+
+                species.Clear();        // Resets the species matrix
 
                 for (int i = 0; i < genomePool.Count; i++)
                 {
                     bool flag = true;
-                    for (int j = 0; j < species.Count && flag; j++)
-                    {
+                    for (int j = 0; j < species.Count && flag; j++) // Check if any matching species exists
                         if (MatchGenome(genomePool[i], species[j][0]))
                         {
                             species[j].Add(genomePool[i]);
                             flag = false;
                         }
-                        if (flag)
-                        {
-                            species.Add(new List<Genome>());
-                            species[species.Count - 1].Add(genomePool[i]);
-                        }
+                    if (flag)
+                    {
+                        species.Add(new List<Genome>());
+                        species[species.Count - 1].Add(genomePool[i]);
                     }
                 }
 
+                #endregion
+
+                #region Crossing
+
+                for (int i = 0; i < species.Count; i++)
+                    Cross(species[i]);
 
                 #endregion
 
@@ -94,9 +99,47 @@ namespace GeneticNN
 
         bool MatchGenome(Genome A, Genome B)
         {
-            HashSet<int> a = new HashSet<int>();
-            a.IntersectWith(new HashSet<int>());
-            return true;
+            HashSet<int> h1 = new HashSet<int>();
+            HashSet<int> h2 = new HashSet<int>();
+            int count1, count2, count3;
+
+            Dictionary<int, double> d1 = new Dictionary<int, double>();
+            Dictionary<int, double> d2 = new Dictionary<int, double>();
+
+            for (int i = 0; i < A.connections.Count; i++)
+            {
+                int refIdx = A.connections[i].innovation_no;
+                h1.Add(refIdx);
+                d1[refIdx] = A.connections[i].weight;
+            }
+            for (int i = 0; i < B.connections.Count; i++)
+            {
+                int refIdx = B.connections[i].innovation_no;
+                h2.Add(refIdx);
+                d2[refIdx] = B.connections[i].weight;
+            }
+
+            count1 = h1.Count;
+            count2 = h2.Count;
+            h1.IntersectWith(h2);
+            count3 = h1.Count;
+
+            double deltaWeight = 0f;
+
+            for (int i = 0; i < A.connections.Count; i++)
+                if (h1.Contains(A.connections[i].innovation_no))
+                    deltaWeight += Math.Abs(d1[A.connections[i].innovation_no] - d2[A.connections[i].innovation_no]);
+
+            double delta = (double)(count1 + count2 - 2 * count3 + 0.4f * (double)deltaWeight) / (count1 + count2 - count3);
+            if (delta < 10.5f)
+                return true;
+            else
+                return false;
+        }
+        
+        void Cross(List<Genome> genomePool)
+        {
+
         }
     }
 }
@@ -106,7 +149,7 @@ class Genome
     #region Declarations
 
     List<GeneNode> nodes = new List<GeneNode>();
-    List<GeneConnection> connections = new List<GeneConnection>();
+    public List<GeneConnection> connections = new List<GeneConnection>();
     public double score = 0;
     int no_nodes = 0, inputSize, outputSize;
     Random random = new Random();
