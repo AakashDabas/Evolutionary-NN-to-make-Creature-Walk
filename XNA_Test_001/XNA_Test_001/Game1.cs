@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -6,6 +8,7 @@ using FarseerPhysics.Dynamics;
 using FarseerPhysics.Dynamics.Joints;
 using FarseerPhysics.Factories;
 using FarseerPhysics;
+using GeneticNN;
 
 namespace Walk_ANN
 {
@@ -23,8 +26,9 @@ namespace Walk_ANN
         JointData[] rightJoints = new JointData[3];
         SpriteFont font;
         Vector2 offset, resolution = new Vector2(12f, 8f);
-        double fps = 1f;
         BackgroundAnimation bkgAni;
+        double fps = 1f;
+        bool controllerFlag = true;
 
         #endregion
 
@@ -41,12 +45,14 @@ namespace Walk_ANN
 
         protected override void Initialize()
         {
+            this.IsMouseVisible = true;
             base.Initialize();
         }
 
-        public void start()
+        public void Reset()
         {
-            Run();
+            world.Clear();
+            LoadContent();
         }
 
         private float ConvertPixelToFloat(int a)
@@ -76,10 +82,10 @@ namespace Walk_ANN
         {
             b2.Position = new Vector2(b1.Position.X, b1.Position.Y + texture1.Height / 100f);
             AngleJoint joint;
-            if(flag)
-                JointFactory.CreateRevoluteJoint(world, b1, b2, 
-                        new Vector2(0f, texture1.Height / 200f), 
-                        new Vector2( 0f, -texture2.Height / 200f));
+            if (flag)
+                JointFactory.CreateRevoluteJoint(world, b1, b2,
+                        new Vector2(0f, texture1.Height / 200f),
+                        new Vector2(0f, -texture2.Height / 200f));
             else
                 JointFactory.CreateRevoluteJoint(world, b1, b2,
                         new Vector2(0f, texture1.Height / 200f),
@@ -149,7 +155,7 @@ namespace Walk_ANN
 
             #region Declares joints
 
-            for(int i = 0; i <= 2; i++)
+            for (int i = 0; i <= 2; i++)
             {
                 leftJoints[i] = new JointData();
                 rightJoints[i] = new JointData();
@@ -184,8 +190,11 @@ namespace Walk_ANN
 
             #endregion
 
-            bkgAni = new BackgroundAnimation(new Texture2D[] { groundTexture, Content.Load<Texture2D>("bkg")}, 
-                                             new Vector2[] { new Vector2(6f, 7.5f),new Vector2(0f, 2.7f) }, resolution, head.Position);
+            bkgAni = new BackgroundAnimation(new Texture2D[] { groundTexture, Content.Load<Texture2D>("bkg") },
+                                             new Vector2[] { new Vector2(6f, 7.5f), new Vector2(0f, 2.7f) }, resolution, head.Position);
+
+            Thread thread = new Thread(new ThreadStart(Controller));
+            thread.Start();
 
         }
 
@@ -202,6 +211,8 @@ namespace Walk_ANN
             ground.Position = new Vector2(head.Position.X, ground.Position.Y);
 
             if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.Q))
+                controllerFlag = false;
+            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.K))
             {
                 Console.Write("CLICK");
                 leftJoints[0].Update(DegreeToRad(-1f));
@@ -218,13 +229,17 @@ namespace Walk_ANN
                 rightJoints[1].Update(DegreeToRad(-5f));
             }
 
-            world.Step(1 / 30f);
 
             if (Mouse.GetState().LeftButton.Equals(KeyState.Down))
             {
             }
             base.Update(gameTime);
-            this.IsMouseVisible = true;
+        }
+
+        protected override void Draw(GameTime gameTime)
+        {
+            DrawScreen();
+            base.Draw(gameTime);
         }
 
         protected void DrawBody(Texture2D texture, Body body)
@@ -235,7 +250,7 @@ namespace Walk_ANN
                 SpriteEffects.None, 0f);
         }
 
-        protected override void Draw(GameTime gameTime)
+        private void DrawScreen()
         {
             //Console.WriteLine(rect1.Position.X + "   " + rect1.Position.Y);
             GraphicsDevice.Clear(Color.White);
@@ -259,18 +274,64 @@ namespace Walk_ANN
             spriteBatch.DrawString(font, head.Position.X + "", new Vector2(0f, 50), Color.Red);
 
             spriteBatch.End();
-
-
-            base.Draw(gameTime);
         }
+
+        private void Controller()
+        {
+
+            GeneticNeuralNetwork neural_net = new GeneticNeuralNetwork(9, 12, 100);
+            long gen = 0;
+            while (true)
+            {
+                if (!controllerFlag)
+                {
+                    Exit();
+                    return;
+                }
+
+                long counter = 0;
+                double score = 0f;
+
+                List<Genome> genomePool = neural_net.GetGenomePool();
+
+                foreach (Genome genome in genomePool)
+                {
+                    List<double> input = new List<double>();
+                    input.Add(head.Position.X);
+                    input.Add(head.Position.Y);
+                    input.Add(head.AngularVelocity);
+                    for (int i = 0; i < 3; i++)
+                        input.Add(leftJoints[i].Get());
+                    for (int i = 0; i < 3; i++)
+                        input.Add(rightJoints[i].Get());
+
+                    List<double> output = genome.Output(input);
+
+                    for (int i = 0; i < 3; i++)
+                    {
+                        double delta = 0f;
+                        double c1 = output[2 * i], c2 = output[2 * i + 1];
+                        if (c1 > c2)
+                            delta = c1;
+                        else
+                            delta = c2;
+                        leftJoints[i].Update((float)delta);
+                    }
+                }
+
+                world.Step(1 / 30f);
+                Thread.Sleep(1000 / 60);
+            }
+        }
+
     }
 
     public class JointData
     {
         public AngleJoint joint;
-        public float upperLimit, lowerLimit, currAngle = 0;
+        float upperLimit, lowerLimit, currAngle = 0;
 
-        public void CreateJoint(World world, Texture2D texture1, Texture2D texture2, 
+        public void CreateJoint(World world, Texture2D texture1, Texture2D texture2,
                                 Body b1, ref Body b2, bool flag, float uL, float lL)
         {
             b2.Position = new Vector2(b1.Position.X, b1.Position.Y + texture1.Height / 100f);
@@ -330,8 +391,8 @@ namespace Walk_ANN
 
         public BackgroundAnimation(Texture2D[] texture, Vector2[] position, Vector2 resolution, Vector2 posRef)
         {
-            this.texture = texture;  
-            this.length = texture.Length;   
+            this.texture = texture;
+            this.length = texture.Length;
             this.position = new Vector2[length];
             for (int i = 0; i < length; i++)
                 this.position[i] = position[i];
@@ -344,30 +405,15 @@ namespace Walk_ANN
         {
             xRef += posRef.X - currPostion.X;
             posRef = currPostion;
-            for(int i = length - 1; i >= 0; i--)
+            for (int i = length - 1; i >= 0; i--)
             {
                 xRef /= i + 1;
                 int n = (int)(xRef / (texture[i].Width / 100f));
-                for(int j = 0; j < 2; j++)
+                for (int j = 0; j < 2; j++)
                 {
                     spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - (n + j) * texture[i].Width / 100f, position[i].Y)), Color.White);
                     spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + (n + j) * texture[i].Width / 100f, position[i].Y)), Color.White);
                 }
-                //if (xRef >= 0 && xRef <= resolution.X)
-                //{
-                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef, position[i].Y)), Color.White);
-                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - texture[i].Width / 100f, position[i].Y)), Color.White);
-                //}
-                //else if (xRef >= resolution.X)
-                //{
-                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - (n + 1) * texture[i].Width / 100f, position[i].Y)), Color.White);
-                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - (n + 2) * texture[i].Width / 100f, position[i].Y)), Color.White);
-                //}
-                //if (xRef <= 0)
-                //{
-                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + n * texture[i].Width / 100f, position[i].Y)), Color.White);
-                //    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + (n + 1)* texture[i].Width / 100f, position[i].Y)), Color.White);
-                //}
                 xRef *= i + 1;
             }
         }

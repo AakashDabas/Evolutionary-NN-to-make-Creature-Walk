@@ -3,6 +3,8 @@ using System.Collections.Generic;
 
 enum GeneNodeType { INPUT, OUPUT, HIDDEN };
 
+enum Message { RESET, ITERATE };
+
 namespace GeneticNN
 {
     class GeneticNeuralNetwork
@@ -10,15 +12,91 @@ namespace GeneticNN
 
         #region Declarations
 
-        List<Genome> genomes = new List<Genome>();
+        List<Genome> genomePool = new List<Genome>();
+        SortedDictionary<double, Genome> rankedGenome = new SortedDictionary<double, Genome>();
+        List<List<Genome>> species = new List<List<Genome>>();
+        public int generation = 0;
+        int currentGenome = 0, currentSpecies = 0;
+        long currentSample = 0;
+
+        public Message msg = Message.RESET;
 
         #endregion
+
         public GeneticNeuralNetwork(int input, int output, int no_of_genomes)
         {
             for (int i = 0; i < no_of_genomes; i++)
+                genomePool.Add(new Genome(input, output));
+        }
+
+        public void UpdateGenomePool(SortedDictionary<double, Genome> rankedGenomePool)
+        {
+            double[] scores = new double[rankedGenomePool.Count];
+            genomePool.Clear();
+            foreach (double itr in scores)
+                genomePool.Add(rankedGenomePool[itr]);
+        }
+
+        public List<double> Iterate(List<double> input)
+        {
+            currentSample++;
+            if (currentSample > 30 * 60)
+                msg = Message.RESET;
+            else
+                msg = Message.ITERATE;
+            return genomePool[currentGenome].Output(input);
+        }
+
+        public void SetScore(double score)
+        {
+            genomePool[currentGenome].score = score;
+
+            while (rankedGenome.ContainsKey(score))
+                score += 0.00001;
+
+            rankedGenome[score] = genomePool[currentGenome];
+
+            currentGenome++;
+            currentSample = 0;
+
+            #region Speciation
+
+            if (currentGenome == genomePool.Count)
             {
-                genomes.Add(new Genome(input, output));
+                generation++;
+                currentGenome = 0;
+
+                species.Clear();
+
+                for (int i = 0; i < genomePool.Count; i++)
+                {
+                    bool flag = true;
+                    for (int j = 0; j < species.Count && flag; j++)
+                    {
+                        if (MatchGenome(genomePool[i], species[j][0]))
+                        {
+                            species[j].Add(genomePool[i]);
+                            flag = false;
+                        }
+                        if (flag)
+                        {
+                            species.Add(new List<Genome>());
+                            species[species.Count - 1].Add(genomePool[i]);
+                        }
+                    }
+                }
+
+
+                #endregion
+
             }
+        }
+
+        bool MatchGenome(Genome A, Genome B)
+        {
+            HashSet<int> a = new HashSet<int>();
+            a.IntersectWith(new HashSet<int>());
+            return true;
         }
     }
 }
@@ -29,7 +107,7 @@ class Genome
 
     List<GeneNode> nodes = new List<GeneNode>();
     List<GeneConnection> connections = new List<GeneConnection>();
-    double score = 0;
+    public double score = 0;
     int no_nodes = 0, inputSize, outputSize;
     Random random = new Random();
     double factor = 10f;
@@ -46,44 +124,6 @@ class Genome
         outputSize = output;
         inputSize = input;
         Init();
-        Display();
-    }
-
-    private void Display()
-    {
-        Dictionary<int, List<GeneConnection>> map = new Dictionary<int, List<GeneConnection>>();    // To store the graph
-        List<int> buffer = new List<int>();                 // Used for BFS
-        bool[] key = new bool[nodes.Count];
-
-        for (int i = 0; i < connections.Count; i++)  // Forms the graph of topology
-        {
-            if (map.ContainsKey(connections[i].source) == false)
-                map[connections[i].source] = new List<GeneConnection>();
-            map[connections[i].source].Add(connections[i]);
-        }
-        for (int i = 0; i < inputSize; i++)
-        {
-            buffer.Add(i);
-            if (map.ContainsKey(i) == false)
-                map[i] = new List<GeneConnection>();
-        }
-
-        int cnt = 0;
-        while (buffer.Count > 0)
-        {
-                if (map.ContainsKey(buffer[0]))
-                {
-                    foreach (GeneConnection i in map[buffer[0]])
-                        if (key[i.destination] == false)
-                        {
-                            buffer.Add(i.destination);
-                            key[i.destination] = true;
-                            cnt++;
-                        }
-                }
-            buffer.RemoveAt(0);
-        }
-
     }
 
     private void Init()
@@ -114,6 +154,8 @@ class Genome
 
         for (int i = 0; i < connections.Count; i++)  // Forms the graph of topology
         {
+            if (map.ContainsKey(connections[i].source) == false)
+                map[connections[i].source] = new List<GeneConnection>();
             map[connections[i].source].Add(connections[i]);
             no_of_inputs[connections[i].destination]++;
         }
@@ -147,7 +189,7 @@ class Genome
         }
         List<double> outputData = new List<double>();
         for (int i = 0; i < outputSize; i++)
-            outputData[i] = nodesBuffer[i + inputSize];
+            outputData.Add(nodesBuffer[i + inputSize]);
         return outputData;
     }
 
@@ -193,7 +235,7 @@ class Genome
                 registeredConnection[n1].Contains(n2) == true)
                 continue;
             double wt = random.NextDouble() * factor;
-            connections.Add(new GeneConnection(n1, n2,  wt));
+            connections.Add(new GeneConnection(n1, n2, wt));
             if (registeredConnection.ContainsKey(n1) == false)
                 registeredConnection.Add(n1, new HashSet<int>());
             registeredConnection[n1].Add(n2);
