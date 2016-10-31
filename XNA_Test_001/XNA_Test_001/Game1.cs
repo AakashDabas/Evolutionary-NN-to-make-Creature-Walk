@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using System.Timers;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -27,8 +28,10 @@ namespace Walk_ANN
         SpriteFont font;
         Vector2 offset, resolution = new Vector2(12f, 8f);
         BackgroundAnimation bkgAni;
-        double fps = 1f;
+        GeneticNeuralNetwork neural_net;
+        double fps = 20f;
         bool controllerFlag = true;
+        string outputMsg;
 
         #endregion
 
@@ -41,6 +44,9 @@ namespace Walk_ANN
             graphics.PreferredBackBufferWidth = (int)(resolution.X * 100f);
 
             Content.RootDirectory = "Content";
+
+            neural_net = new GeneticNeuralNetwork(9, 6, 100);
+            this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (fps * 60f));
         }
 
         protected override void Initialize()
@@ -105,7 +111,6 @@ namespace Walk_ANN
             else
                 world.Clear();
 
-            this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (fps * 60f));
 
             #region Loads Content Data
 
@@ -119,21 +124,23 @@ namespace Walk_ANN
 
             #region Creates Skeleton
 
+            float shift = 3.0f;
             ground = ConstructFromTexture(groundTexture, true, new Vector2(6f, 8f));
 
-            lb1 = ConstructFromTexture(boneTexture, false, new Vector2(1.0f, 0f));
-            lb2 = ConstructFromTexture(boneTexture, false, new Vector2(2.0f, 0f));
-            rb1 = ConstructFromTexture(boneTexture, false, new Vector2(3.0f, 0f));
-            rb2 = ConstructFromTexture(boneTexture, false, new Vector2(4.0f, 0f));
+            lb1 = ConstructFromTexture(boneTexture, false, new Vector2(1.0f, 0f + shift));
+            lb2 = ConstructFromTexture(boneTexture, false, new Vector2(2.0f, 0f + shift));
+            rb1 = ConstructFromTexture(boneTexture, false, new Vector2(3.0f, 0f + shift));
+            rb2 = ConstructFromTexture(boneTexture, false, new Vector2(4.0f, 0f + shift));
 
-            lb3 = ConstructFromTexture(boneTexture, false, new Vector2(5.0f, 2f));
-            rb3 = ConstructFromTexture(boneTexture, false, new Vector2(6.0f, 2f));
+            lb3 = ConstructFromTexture(boneTexture, false, new Vector2(5.0f, 2f + shift));
+            rb3 = ConstructFromTexture(boneTexture, false, new Vector2(6.0f, 2f + shift));
 
-            head = ConstructFromTexture(headTexture, false, new Vector2(8.0f, 1f), 0.5f);
+            head = ConstructFromTexture(headTexture, false, new Vector2(8.0f, 1f + shift), 0.5f);
             head.Inertia = 10f;
 
             lb3.Friction = 10f;
             rb3.Friction = 10f;
+            ground.Friction = 10f;
 
             #endregion
 
@@ -183,8 +190,8 @@ namespace Walk_ANN
             leftJoints[1].Set(DegreeToRad(75f));
             rightJoints[1].Set(DegreeToRad(75f));
 
-            leftJoints[2].Set(DegreeToRad(60f));
-            rightJoints[2].Set(DegreeToRad(60f));
+            leftJoints[2].Set(DegreeToRad(50f));
+            rightJoints[2].Set(DegreeToRad(50f));
             //la1.Softness = la2.Softness = la3.Softness = 0.2f;
             //ra1.Softness = ra2.Softness = ra3.Softness = 0.2f;
 
@@ -193,9 +200,8 @@ namespace Walk_ANN
             bkgAni = new BackgroundAnimation(new Texture2D[] { groundTexture, Content.Load<Texture2D>("bkg") },
                                              new Vector2[] { new Vector2(6f, 7.5f), new Vector2(0f, 2.7f) }, resolution, head.Position);
 
-            Thread thread = new Thread(new ThreadStart(Controller));
-            thread.Start();
-
+            //Thread thread = new Thread(new ThreadStart(Controller));
+            //thread.Start();
         }
 
         protected override void UnloadContent()
@@ -207,32 +213,72 @@ namespace Walk_ANN
         {
             offset.Y = 0f;
             offset.X = -head.Position.X + 5f;
-            //offset.X = head.Position.X % 800;
-            ground.Position = new Vector2(head.Position.X, ground.Position.Y);
+
+            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.U))
+                this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (20 * 60f));
+            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.I))
+                this.TargetElapsedTime = TimeSpan.FromSeconds(1f / 60f);
 
             if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.Q))
-                controllerFlag = false;
-            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.K))
             {
-                Console.Write("CLICK");
-                leftJoints[0].Update(DegreeToRad(-1f));
-                rightJoints[0].Update(DegreeToRad(-1f));
-                leftJoints[1].Update(DegreeToRad(1f));
-                rightJoints[1].Update(DegreeToRad(1f));
-            }
-            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.R))
-            {
-                Console.Write("CLICK");
-                leftJoints[0].Update(DegreeToRad(5f));
-                rightJoints[0].Update(DegreeToRad(5f));
-                leftJoints[1].Update(DegreeToRad(-5f));
-                rightJoints[1].Update(DegreeToRad(-5f));
+                Console.WriteLine("T H A N K     Y O U ! ! ! !");
+                Thread.Sleep(1000);
+                Exit();
             }
 
+            //if (Mouse.GetState().LeftButton.Equals(KeyState.Down))
+            Message msg = neural_net.msg;
 
-            if (Mouse.GetState().LeftButton.Equals(KeyState.Down))
+            double score = head.Position.X - 7f;
+
+            if (msg == Message.RESET)
             {
+                Console.WriteLine("RESET");
+                neural_net.UpdatePool(score);
+                Reset();
+                Console.Clear();
+                neural_net.DisplayGenome();
             }
+
+            #region INPUT LAYER
+
+            List<double> input = new List<double>();
+            input.Add(head.Position.X);
+            input.Add(head.Position.Y);
+            input.Add(head.AngularVelocity);
+            for (int i = 0; i < 3; i++)
+                input.Add(leftJoints[i].Get());
+            for (int i = 0; i < 3; i++)
+                input.Add(rightJoints[i].Get());
+
+            #endregion
+
+            #region OUTPUT LAYER
+
+            List<double> output = neural_net.Iterate(input);
+            foreach (double i in output)
+            {
+                //Console.Write(i + " ");
+            }
+
+            //Console.WriteLine(" ");
+
+            for (int i = 0; i < 6; i++)
+            {
+                if (i < 3)
+                    leftJoints[i].Update((float)output[i]);
+                else
+                    rightJoints[i / 2].Update((float)output[i / 2]);
+            }
+
+            #endregion
+
+            world.Step(1 / 30f);
+
+            outputMsg = neural_net.generation + " ";
+            outputMsg += neural_net.currentGenome + " ";
+            outputMsg += neural_net.currentSample + " ";
+            outputMsg += score;
             base.Update(gameTime);
         }
 
@@ -272,57 +318,11 @@ namespace Walk_ANN
             //DrawBody(groundTexture, ground);
 
             spriteBatch.DrawString(font, head.Position.X + "", new Vector2(0f, 50), Color.Red);
+            spriteBatch.DrawString(font, outputMsg, new Vector2(0f, 100), Color.Red);
 
             spriteBatch.End();
         }
 
-        private void Controller()
-        {
-
-            GeneticNeuralNetwork neural_net = new GeneticNeuralNetwork(9, 12, 100);
-            long gen = 0;
-            while (true)
-            {
-                if (!controllerFlag)
-                {
-                    Exit();
-                    return;
-                }
-
-                long counter = 0;
-                double score = 0f;
-
-                List<Genome> genomePool = neural_net.GetGenomePool();
-
-                foreach (Genome genome in genomePool)
-                {
-                    List<double> input = new List<double>();
-                    input.Add(head.Position.X);
-                    input.Add(head.Position.Y);
-                    input.Add(head.AngularVelocity);
-                    for (int i = 0; i < 3; i++)
-                        input.Add(leftJoints[i].Get());
-                    for (int i = 0; i < 3; i++)
-                        input.Add(rightJoints[i].Get());
-
-                    List<double> output = genome.Output(input);
-
-                    for (int i = 0; i < 3; i++)
-                    {
-                        double delta = 0f;
-                        double c1 = output[2 * i], c2 = output[2 * i + 1];
-                        if (c1 > c2)
-                            delta = c1;
-                        else
-                            delta = c2;
-                        leftJoints[i].Update((float)delta);
-                    }
-                }
-
-                world.Step(1 / 30f);
-                Thread.Sleep(1000 / 60);
-            }
-        }
 
     }
 
