@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 
 enum GeneNodeType { INPUT, OUPUT, HIDDEN };
 
@@ -12,7 +13,7 @@ namespace GeneticNN
 
         #region Declarations
 
-        List<Genome> genomePool = new List<Genome>();
+        public List<Genome> genomePool = new List<Genome>();
         SortedDictionary<double, Genome> rankedGenome = new SortedDictionary<double, Genome>();
         List<List<Genome>> species = new List<List<Genome>>();
         public int generation = 0;
@@ -33,7 +34,7 @@ namespace GeneticNN
         public List<double> Iterate(List<double> input)
         {
             currentSample++;
-            if (currentSample > 30 * 10)
+            if (currentSample > 30 * 60)
                 msg = Message.RESET;
             else
                 msg = Message.ITERATE;
@@ -42,6 +43,7 @@ namespace GeneticNN
 
         public void UpdatePool(double score)
         {
+            score = -score;
             msg = Message.ITERATE;
 
             genomePool[currentGenome].score = score;
@@ -59,6 +61,12 @@ namespace GeneticNN
             {
                 generation++;
                 currentGenome = 0;
+
+                genomePool.Clear();
+                foreach (KeyValuePair<double, Genome> itr in rankedGenome)
+                    genomePool.Add(itr.Value);
+
+                rankedGenome.Clear();
 
                 #region Speciation
 
@@ -128,7 +136,7 @@ namespace GeneticNN
                     deltaWeight += Math.Abs(d1[A.connections[i].innovation_no] - d2[A.connections[i].innovation_no]);
 
             double delta = (double)(count1 + count2 - 2 * count3 + 0.4f * (double)deltaWeight) / (count1 + count2 - count3);
-            if (delta < 10.5f)
+            if (delta < 1.5f)
                 return true;
             else
                 return false;
@@ -148,7 +156,7 @@ namespace GeneticNN
                 for (int i = 0; i < idx; i++)
                     this.genomePool.Add(genomePool[i]);
 
-            for (int i = idx + 1; i < genomePool.Count; i++)
+            for (int i = idx; i < genomePool.Count; i++)
             {
                 int rIdx = random.Next() % idx;
                 Genome g1, g2;
@@ -175,9 +183,7 @@ namespace GeneticNN
                     {
                         int randomVal = random.Next() % 2;
                         if (randomVal == 0)
-                            g1.connections[idxGene].weight = g1.connections[idxGene].weight;
-                        else
-                            g1.connections[idxGene].weight = g2.connections[j].weight;
+                            g1.connections[innvoationIdx[idxGene]].weight = g2.connections[j].weight;
                     }
                 }
 
@@ -203,7 +209,7 @@ class Genome
     public double score = 0;
     int no_nodes = 0, inputSize, outputSize;
     Random random = new Random();
-    double factor = 10f;
+    double factor = 1f;
     Dictionary<int, HashSet<int>> registeredConnection = new Dictionary<int, HashSet<int>>();
 
     #endregion
@@ -216,14 +222,13 @@ class Genome
             nodes.Add(new GeneNode(no_nodes, GeneNodeType.OUPUT));
         outputSize = output;
         inputSize = input;
-        Init();
-    }
 
-    private void Init()
-    {
-        int rand_connections = random.Next(5, 50);
+        int rand_connections = random.Next(15, 30);
         for (int i = 0; i < rand_connections; i++)
+        {
             Mutate(true, true);
+            Thread.Sleep(1);
+        }
     }
 
     private double Evaluate(double input, int n)
@@ -288,22 +293,25 @@ class Genome
 
     private void PointMutate()
     {
-        // Change the weight of a randomly selected connection
-        int n = -1;
-        bool flag = false;
-        for (int i = 0; i < 10; i++)
+        for (int itr = 0; itr < 5; itr++)
         {
-            n = random.Next() % connections.Count;
-            if (connections[n].status == true)
+            // Change the weight of a randomly selected connection
+            int n = -1;
+            bool flag = false;
+            for (int i = 0; i < 10; i++)
             {
-                flag = true;
-                break;
+                n = random.Next() % connections.Count;
+                if (connections[n].status == true)
+                {
+                    flag = true;
+                    break;
+                }
             }
+            if (flag == false)
+                return;
+            double deltaWeight = random.Next(-100, 100) / 100f;
+            connections[n].UpdateWeight(deltaWeight);
         }
-        if (flag == false)
-            return;
-        double deltaWeight = random.Next(-100, 100) / 100f;
-        connections[n].UpdateWeight(deltaWeight);
     }
 
     private void LinkMutate()
@@ -327,7 +335,7 @@ class Genome
             if (registeredConnection.ContainsKey(n1) == true &&
                 registeredConnection[n1].Contains(n2) == true)
                 continue;
-            double wt = random.Next(-100, 100) / 10f;
+            double wt = random.Next(-100, 100) / 100f;
             connections.Add(new GeneConnection(n1, n2, wt));
             if (registeredConnection.ContainsKey(n1) == false)
                 registeredConnection.Add(n1, new HashSet<int>());
@@ -359,6 +367,7 @@ class Genome
 
     private void EnableDisableMutation()
     {
+        return;
         if (connections.Count == 0)
             return;
         int n = random.Next() % connections.Count;
@@ -367,44 +376,47 @@ class Genome
 
     public void Mutate(bool flag = false, bool initCall = false)
     {
-        flag = true;
-        while (flag)
+        for (int itr = 0; itr < 20; itr++)
         {
-            double randomTmp = random.NextDouble();
-            if (initCall)
+            flag = true;
+            while (flag)
             {
-                if (randomTmp < 0.50)
+                double randomTmp = random.NextDouble();
+                if (initCall)
                 {
-                    LinkMutate();
-                    flag = false;
+                    if (randomTmp < 0.50)
+                    {
+                        LinkMutate();
+                        flag = false;
+                    }
+                    else if (connections.Count > 0)
+                    {
+                        NodeMutate();
+                        flag = false;
+                    }
                 }
-                else if (connections.Count > 0)
+                else
                 {
-                    NodeMutate();
-                    flag = false;
-                }
-            }
-            else
-            {
-                if (randomTmp < 0.80f)
-                {
-                    flag = false;
-                    PointMutate();
-                }
-                if (randomTmp < 0.10f && connections.Count > 0)
-                {
-                    flag = false;
-                    LinkMutate();
-                }
-                if (randomTmp < 0.15f && connections.Count > 0)
-                {
-                    flag = false;
-                    NodeMutate();
-                }
-                if (randomTmp < 0.05f && connections.Count > 0)
-                {
-                    flag = false;
-                    EnableDisableMutation();
+                    if (randomTmp < 1f)
+                    {
+                        flag = false;
+                        PointMutate();
+                    }
+                    if (randomTmp < 0.80f && connections.Count > 0)
+                    {
+                        flag = false;
+                        LinkMutate();
+                    }
+                    if (randomTmp < 0.80f && connections.Count > 0)
+                    {
+                        flag = false;
+                        NodeMutate();
+                    }
+                    if (randomTmp < 0.05f && connections.Count > 0)
+                    {
+                        flag = false;
+                        EnableDisableMutation();
+                    }
                 }
             }
         }
@@ -412,12 +424,12 @@ class Genome
 
     public void Display()
     {
-        int[][] mat = new int[nodes.Count][];
+        double[][] mat = new double[nodes.Count][];
         for (int i = 0; i < nodes.Count; i++)
-            mat[i] = new int[nodes.Count];
+            mat[i] = new double[nodes.Count];
 
         for (int i = 0; i < connections.Count; i++)
-            mat[connections[i].source][connections[i].destination] = 1;
+            mat[connections[i].source][connections[i].destination] = connections[i].weight;
 
         for (int i = 0; i < nodes.Count; i++)
         {

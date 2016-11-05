@@ -30,8 +30,10 @@ namespace Walk_ANN
         BackgroundAnimation bkgAni;
         GeneticNeuralNetwork neural_net;
         double fps = 20f;
-        bool controllerFlag = true;
         string outputMsg;
+        float maxScore = 0f;
+
+        bool flagTouched = false;
 
         #endregion
 
@@ -45,7 +47,7 @@ namespace Walk_ANN
 
             Content.RootDirectory = "Content";
 
-            neural_net = new GeneticNeuralNetwork(9, 6, 100);
+            neural_net = new GeneticNeuralNetwork(9, 6, 30);
             this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (fps * 60f));
         }
 
@@ -69,6 +71,11 @@ namespace Walk_ANN
         private float DegreeToRad(float deg)
         {
             return deg * 3.14f / 180f;
+        }
+
+        private float RadToDegree(float rad)
+        {
+            return rad * 180f / 3.14f;
         }
 
         private Body ConstructFromTexture(Texture2D texture, bool flag, Vector2 pos, float density = 1f)
@@ -209,77 +216,133 @@ namespace Walk_ANN
             // TODO: Unload any non ContentManager content here
         }
 
+        private void Controller(int noTime)
+        {
+            for (int itr = 0; itr < noTime; itr++)
+            {
+                offset.Y = 0f;
+                offset.X = -head.Position.X + 5f;
+
+                if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.U))
+                    this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (20 * 60f));
+                if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.I))
+                    this.TargetElapsedTime = TimeSpan.FromSeconds(1f / 60f);
+
+                if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.Q))
+                {
+                    Console.WriteLine("T H A N K     Y O U ! ! ! !");
+                    Thread.Sleep(1000);
+                    Exit();
+                }
+
+                //if (Mouse.GetState().LeftButton.Equals(KeyState.Down))
+                Message msg = neural_net.msg;
+
+                double score = head.Position.X - 7f;
+
+                if (head.Position.Y > 6.8f)
+                    flagTouched = true;
+                if (msg == Message.RESET || head.Position.Y > 7f)
+                {
+                    if (head.Position.Y > 7f)
+                        score -= 5f;
+                    else if (flagTouched)
+                        score -= 2f;
+                    if (score > maxScore)
+                        maxScore = (float)score;
+                    neural_net.UpdatePool(score);
+                    Reset();
+                    Console.Clear();
+                    //neural_net.DisplayGenome();
+                }
+
+                #region INPUT LAYER
+
+                List<double> input = new List<double>();
+                input.Add(head.Position.X * 100);
+                input.Add(head.Position.Y * 100);
+                input.Add(RadToDegree(head.AngularVelocity));
+                for (int i = 0; i < 3; i++)
+                    input.Add(RadToDegree(leftJoints[i].Get()));
+                for (int i = 0; i < 3; i++)
+                    input.Add(RadToDegree(rightJoints[i].Get()));
+
+                #endregion
+
+                #region OUTPUT LAYER
+
+                List<double> output = neural_net.Iterate(input);
+                foreach (double i in output)
+                {
+                    //Console.Write(i + " ");
+                }
+
+                //Console.WriteLine(" ");
+                outputMsg = "Gen: " + neural_net.generation + " ";
+                outputMsg += "Genome: " + neural_net.currentGenome + " ";
+                outputMsg += "Sample: " + neural_net.currentSample + " ";
+                outputMsg += "MaxScore: " + maxScore + " ";
+                outputMsg += "CurrentScore: " + score;
+
+                for (int i = 0; i < 6; i += 1)
+                {
+                    //bool flag = false;
+                    //if (output[i] < output[i + 1])
+                    //    flag = true;
+
+                    //float speed = 0.5f;
+
+                    //if(i < 6)
+                    //{
+                    //    if (flag)
+                    //        leftJoints[i / 2].Update(speed);
+                    //    else
+                    //        leftJoints[i / 2].Update(speed);
+                    //}
+                    //else
+                    //{
+                    //    if (flag)
+                    //        leftJoints[i / 4].Update(speed);
+                    //    else
+                    //        leftJoints[i / 4].Update(speed);
+                    //}
+                    if (i < 3)
+                    {
+                        leftJoints[i].Update(DegreeToRad((float)output[i]));
+                        outputMsg += output[i].ToString() + " ";
+                    }
+                    else
+                    {
+                        rightJoints[i / 2].Update(DegreeToRad((float)output[i / 2]));
+                        outputMsg += output[i] + " ";
+                    }
+                }
+
+                #endregion
+
+                world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+                //world.Step(1 / 30f);
+            }
+
+        }
+
         protected override void Update(GameTime gameTime)
         {
-            offset.Y = 0f;
-            offset.X = -head.Position.X + 5f;
-
-            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.U))
-                this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (20 * 60f));
-            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.I))
-                this.TargetElapsedTime = TimeSpan.FromSeconds(1f / 60f);
-
-            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.Q))
-            {
-                Console.WriteLine("T H A N K     Y O U ! ! ! !");
-                Thread.Sleep(1000);
-                Exit();
-            }
-
-            //if (Mouse.GetState().LeftButton.Equals(KeyState.Down))
-            Message msg = neural_net.msg;
-
-            double score = head.Position.X - 7f;
-
-            if (msg == Message.RESET)
-            {
-                Console.WriteLine("RESET");
-                neural_net.UpdatePool(score);
-                Reset();
-                Console.Clear();
-                neural_net.DisplayGenome();
-            }
-
-            #region INPUT LAYER
-
-            List<double> input = new List<double>();
-            input.Add(head.Position.X);
-            input.Add(head.Position.Y);
-            input.Add(head.AngularVelocity);
-            for (int i = 0; i < 3; i++)
-                input.Add(leftJoints[i].Get());
-            for (int i = 0; i < 3; i++)
-                input.Add(rightJoints[i].Get());
-
-            #endregion
-
-            #region OUTPUT LAYER
-
-            List<double> output = neural_net.Iterate(input);
-            foreach (double i in output)
-            {
-                //Console.Write(i + " ");
-            }
-
-            //Console.WriteLine(" ");
-
-            for (int i = 0; i < 6; i++)
-            {
-                if (i < 3)
-                    leftJoints[i].Update((float)output[i]);
-                else
-                    rightJoints[i / 2].Update((float)output[i / 2]);
-            }
-
-            #endregion
-
-            world.Step(1 / 30f);
-
-            outputMsg = neural_net.generation + " ";
-            outputMsg += neural_net.currentGenome + " ";
-            outputMsg += neural_net.currentSample + " ";
-            outputMsg += score;
+            int noTimes = 100;
+            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.P))
+                noTimes = 1;
+            Controller(noTimes);
             base.Update(gameTime);
+            //if (flag == false)
+            //    Update(gameTime);
         }
 
         protected override void Draw(GameTime gameTime)
@@ -349,6 +412,7 @@ namespace Walk_ANN
             upperLimit = uL;
             lowerLimit = lL;
             joint.CollideConnected = false;
+            joint.Softness = 1f;
         }
 
         public void Update(float val)
