@@ -64,6 +64,7 @@
     <Reference Include="System.Net" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FileHandle.cs" />
     <Compile Include="GeneticNeuralNetwork.cs" />
     <Compile Include="int32.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

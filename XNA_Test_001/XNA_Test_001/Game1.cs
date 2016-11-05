@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using System.Timers;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -10,6 +9,7 @@ using FarseerPhysics.Dynamics.Joints;
 using FarseerPhysics.Factories;
 using FarseerPhysics;
 using GeneticNN;
+using FileHandle;
 
 namespace Walk_ANN
 {
@@ -30,7 +30,7 @@ namespace Walk_ANN
         BackgroundAnimation bkgAni;
         GeneticNeuralNetwork neural_net;
         double fps = 20f;
-        string outputMsg;
+        string outputMsg, outputNeuralNetOutput, refAddress = "Ng1\\";
         float maxScore = 0f;
 
         bool flagTouched = false;
@@ -47,7 +47,36 @@ namespace Walk_ANN
 
             Content.RootDirectory = "Content";
 
-            neural_net = new GeneticNeuralNetwork(9, 6, 30);
+            Console.WriteLine("Do you want to load data: ");
+            bool flag = true;
+            while (flag)
+            {
+                string ch = Console.ReadLine();
+                if (ch.Equals("yes"))
+                    while (flag)
+                    {
+                        Console.WriteLine("Please enter file name:");
+                        string fileName = null;
+                        fileName = Console.ReadLine();
+                        Console.WriteLine("Reading from file.");
+                        FileHandler fh = new FileHandler(fileName);
+                        object obj = fh.Read();
+                        if (obj != null)
+                        {
+                            neural_net = (GeneticNeuralNetwork)obj;
+                            Console.WriteLine("Reading Operation Successfully Completed.");
+                            flag = false;
+                        }
+                    }
+                else if (ch.Equals("no"))
+                {
+                    Console.WriteLine("Initializing Neural Net...");
+                    neural_net = new GeneticNeuralNetwork(9, 6, 30);
+                    flag = false;
+                }
+                if (flag)
+                    Console.WriteLine("Please Enter Valid Choice!");
+            }
             this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (fps * 60f));
         }
 
@@ -118,6 +147,7 @@ namespace Walk_ANN
             else
                 world.Clear();
 
+            world.Gravity = new Vector2(1f, 10f);
 
             #region Loads Content Data
 
@@ -131,18 +161,19 @@ namespace Walk_ANN
 
             #region Creates Skeleton
 
-            float shift = 3.0f;
+            float shift = -3.0f;
+            float density = 1f;
             ground = ConstructFromTexture(groundTexture, true, new Vector2(6f, 8f));
 
-            lb1 = ConstructFromTexture(boneTexture, false, new Vector2(1.0f, 0f + shift));
-            lb2 = ConstructFromTexture(boneTexture, false, new Vector2(2.0f, 0f + shift));
-            rb1 = ConstructFromTexture(boneTexture, false, new Vector2(3.0f, 0f + shift));
-            rb2 = ConstructFromTexture(boneTexture, false, new Vector2(4.0f, 0f + shift));
+            lb1 = ConstructFromTexture(boneTexture, false, new Vector2(1.0f, 0f + shift), density);
+            lb2 = ConstructFromTexture(boneTexture, false, new Vector2(2.0f, 0f + shift), density);
+            rb1 = ConstructFromTexture(boneTexture, false, new Vector2(3.0f, 0f + shift), density);
+            rb2 = ConstructFromTexture(boneTexture, false, new Vector2(4.0f, 0f + shift), density);
 
-            lb3 = ConstructFromTexture(boneTexture, false, new Vector2(5.0f, 2f + shift));
-            rb3 = ConstructFromTexture(boneTexture, false, new Vector2(6.0f, 2f + shift));
+            lb3 = ConstructFromTexture(boneTexture, false, new Vector2(5.0f, 2f + shift), density);
+            rb3 = ConstructFromTexture(boneTexture, false, new Vector2(6.0f, 2f + shift), density);
 
-            head = ConstructFromTexture(headTexture, false, new Vector2(8.0f, 1f + shift), 0.5f);
+            head = ConstructFromTexture(headTexture, false, new Vector2(8.0f, 1f + shift), density);
             head.Inertia = 10f;
 
             lb3.Friction = 10f;
@@ -153,17 +184,18 @@ namespace Walk_ANN
 
             #region    Declares Collision Category
 
-            lb1.CollisionCategories = lb2.CollisionCategories = lb3.CollisionCategories = Category.Cat1;
-            rb1.CollisionCategories = rb2.CollisionCategories = rb3.CollisionCategories = Category.Cat2;
+            ground.CollisionCategories = Category.Cat1;
+            ground.CollidesWith = Category.Cat2 | Category.Cat3 | Category.Cat4;
 
-            lb1.CollidesWith = lb2.CollidesWith = lb3.CollidesWith = Category.Cat1 | Category.Cat4;
-            rb1.CollidesWith = rb2.CollidesWith = rb3.CollidesWith = Category.Cat2 | Category.Cat4;
+            lb1.CollisionCategories = lb2.CollisionCategories = lb3.CollisionCategories = Category.Cat2;
+            rb1.CollisionCategories = rb2.CollisionCategories = rb3.CollisionCategories = Category.Cat3;
 
-            head.CollisionCategories = Category.Cat3;
-            head.CollidesWith = Category.Cat4;
+            lb1.CollidesWith = lb2.CollidesWith = lb3.CollidesWith = /*Category.Cat1 | */Category.Cat1;
+            rb1.CollidesWith = rb2.CollidesWith = rb3.CollidesWith = /*Category.Cat2 | */Category.Cat1;
 
-            ground.CollisionCategories = Category.Cat4;
-            ground.CollidesWith = Category.Cat1 | Category.Cat2 | Category.Cat3 | Category.Cat4;
+            head.CollisionCategories = Category.Cat4;
+            head.CollidesWith = Category.Cat1;
+
 
             #endregion
 
@@ -175,8 +207,8 @@ namespace Walk_ANN
                 rightJoints[i] = new JointData();
             }
 
-            leftJoints[0].CreateJoint(world, headTexture, boneTexture, head, ref lb1, true, DegreeToRad(30f), DegreeToRad(-90f));
-            rightJoints[0].CreateJoint(world, headTexture, boneTexture, head, ref rb1, true, DegreeToRad(30f), DegreeToRad(-90f));
+            leftJoints[0].CreateJoint(world, headTexture, boneTexture, head, ref lb1, true, DegreeToRad(30f), DegreeToRad(-90f), true);
+            rightJoints[0].CreateJoint(world, headTexture, boneTexture, head, ref rb1, true, DegreeToRad(30f), DegreeToRad(-90f), true);
 
             leftJoints[1].CreateJoint(world, boneTexture, boneTexture, lb1, ref lb2, true, DegreeToRad(160f), DegreeToRad(-10f));
             rightJoints[1].CreateJoint(world, boneTexture, boneTexture, rb1, ref rb2, true, DegreeToRad(160f), DegreeToRad(-10f));
@@ -223,6 +255,8 @@ namespace Walk_ANN
                 offset.Y = 0f;
                 offset.X = -head.Position.X + 5f;
 
+                ground.Position = new Vector2(head.Position.X, ground.Position.Y);
+
                 if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.U))
                     this.TargetElapsedTime = TimeSpan.FromSeconds(1f / (20 * 60f));
                 if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.I))
@@ -230,6 +264,17 @@ namespace Walk_ANN
 
                 if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.Q))
                 {
+                    Console.WriteLine("Do you want to save current data: ");
+                    string ch = Console.ReadLine();
+                    if (ch.Equals("yes"))
+                    {
+                        Console.WriteLine("Enter the file name: ");
+                        string fileName = Console.ReadLine();
+                        Console.WriteLine("Writing to file.");
+                        FileHandler fh = new FileHandler(fileName);
+                        fh.Write(neural_net);
+                        Console.WriteLine("Written current data to file.");
+                    }
                     Console.WriteLine("T H A N K     Y O U ! ! ! !");
                     Thread.Sleep(1000);
                     Exit();
@@ -251,8 +296,14 @@ namespace Walk_ANN
                     if (score > maxScore)
                         maxScore = (float)score;
                     neural_net.UpdatePool(score);
+                    if (neural_net.generation % 2 == 0 && neural_net.generation != 0 && neural_net.currentGenome == 0)
+                    {
+                        string address = refAddress + neural_net.generation;
+                        FileHandler fh = new FileHandler(address);
+                        fh.Write(neural_net);
+                        Console.WriteLine("Written to file generation: " + neural_net.generation);
+                    }
                     Reset();
-                    Console.Clear();
                     //neural_net.DisplayGenome();
                 }
 
@@ -272,18 +323,14 @@ namespace Walk_ANN
                 #region OUTPUT LAYER
 
                 List<double> output = neural_net.Iterate(input);
-                foreach (double i in output)
-                {
-                    //Console.Write(i + " ");
-                }
 
-                //Console.WriteLine(" ");
-                outputMsg = "Gen: " + neural_net.generation + " ";
-                outputMsg += "Genome: " + neural_net.currentGenome + " ";
-                outputMsg += "Sample: " + neural_net.currentSample + " ";
-                outputMsg += "MaxScore: " + maxScore + " ";
+                outputMsg = "Generation: " + neural_net.generation + "\n";
+                outputMsg += "Genome: " + neural_net.currentGenome + "\n";
+                outputMsg += "Sample: " + neural_net.currentSample + "\n";
+                outputMsg += "MaxScore: " + maxScore + "\n";
                 outputMsg += "CurrentScore: " + score;
 
+                outputNeuralNetOutput = "";
                 for (int i = 0; i < 6; i += 1)
                 {
                     //bool flag = false;
@@ -309,40 +356,26 @@ namespace Walk_ANN
                     if (i < 3)
                     {
                         leftJoints[i].Update(DegreeToRad((float)output[i]));
-                        outputMsg += output[i].ToString() + " ";
+                        outputNeuralNetOutput += output[i].ToString() + "\n";
                     }
                     else
                     {
                         rightJoints[i / 2].Update(DegreeToRad((float)output[i / 2]));
-                        outputMsg += output[i] + " ";
+                        outputNeuralNetOutput += output[i] + "\n";
                     }
                 }
 
                 #endregion
 
                 world.Step(1 / 30f);
-                //world.Step(1 / 30f);
-                //world.Step(1 / 30f);
-                //world.Step(1 / 30f);
-                //world.Step(1 / 30f);
-                //world.Step(1 / 30f);
-                //world.Step(1 / 30f);
-                //world.Step(1 / 30f);
-                //world.Step(1 / 30f);
-                //world.Step(1 / 30f);
             }
 
         }
 
         protected override void Update(GameTime gameTime)
         {
-            int noTimes = 100;
-            if (Keyboard.GetState(PlayerIndex.One).IsKeyDown(Keys.P))
-                noTimes = 1;
-            Controller(noTimes);
+            Controller(1);
             base.Update(gameTime);
-            //if (flag == false)
-            //    Update(gameTime);
         }
 
         protected override void Draw(GameTime gameTime)
@@ -380,12 +413,12 @@ namespace Walk_ANN
 
             //DrawBody(groundTexture, ground);
 
-            spriteBatch.DrawString(font, head.Position.X + "", new Vector2(0f, 50), Color.Red);
-            spriteBatch.DrawString(font, outputMsg, new Vector2(0f, 100), Color.Red);
+            spriteBatch.DrawString(font, "An Attempt To Walk By Aakash Dabas", new Vector2(0f, 10), Color.DarkGoldenrod);
+            spriteBatch.DrawString(font, outputMsg, new Vector2(0f, 100), Color.IndianRed);
+            //spriteBatch.DrawString(font, "Neural Net OUTPUT\n" + outputNeuralNetOutput, new Vector2(800, 100), Color.Black);
 
             spriteBatch.End();
         }
-
 
     }
 
@@ -395,33 +428,42 @@ namespace Walk_ANN
         float upperLimit, lowerLimit, currAngle = 0;
 
         public void CreateJoint(World world, Texture2D texture1, Texture2D texture2,
-                                Body b1, ref Body b2, bool flag, float uL, float lL)
+                                Body b1, ref Body b2, bool flag, float uL, float lL, bool center = false)
         {
             b2.Position = new Vector2(b1.Position.X, b1.Position.Y + texture1.Height / 100f);
-            if (flag)
+            if (center)
+            {
                 JointFactory.CreateRevoluteJoint(world, b1, b2,
-                        new Vector2(0f, texture1.Height / 200f),
-                        new Vector2(0f, -texture2.Height / 200f));
+                        new Vector2(0f, texture1.Height / 400f),
+                        new Vector2(0f, -texture2.Height / 400f));
+            }
             else
-                JointFactory.CreateRevoluteJoint(world, b1, b2,
-                        new Vector2(0f, texture1.Height / 200f),
-                        new Vector2(0f, -texture2.Width / 200f));
+            {
+                if (flag)
+                    JointFactory.CreateRevoluteJoint(world, b1, b2,
+                            new Vector2(0f, texture1.Height / 200f),
+                            new Vector2(0f, -texture2.Height / 200f));
+                else
+                    JointFactory.CreateRevoluteJoint(world, b1, b2,
+                            new Vector2(0f, texture1.Height / 200f),
+                            new Vector2(0f, -texture2.Width / 200f));
+            }
             joint = JointFactory.CreateAngleJoint(world, b1, b2);
             joint.TargetAngle = 0f;
-            joint.MaxImpulse = 0.02f;
+            //joint.MaxImpulse = 0.02f;
             upperLimit = uL;
             lowerLimit = lL;
-            joint.CollideConnected = false;
-            joint.Softness = 1f;
+            joint.CollideConnected = true;
+            //joint.Softness = 0.01f;
         }
 
         public void Update(float val)
         {
             currAngle += val;
-            if (currAngle > upperLimit)
-                currAngle = upperLimit;
-            if (currAngle < lowerLimit)
-                currAngle = lowerLimit;
+            //if (currAngle > upperLimit)
+            //    currAngle = upperLimit;
+            //if (currAngle < lowerLimit)
+            //    currAngle = lowerLimit;
             joint.TargetAngle = currAngle;
         }
 
@@ -473,10 +515,10 @@ namespace Walk_ANN
             {
                 xRef /= i + 1;
                 int n = (int)(xRef / (texture[i].Width / 100f));
-                for (int j = 0; j < 2; j++)
+                for (int j = 0; j < 4; j++)
                 {
-                    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - (n + j) * texture[i].Width / 100f, position[i].Y)), Color.White);
-                    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + (n + j) * texture[i].Width / 100f, position[i].Y)), Color.White);
+                    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef - (0 + j) * texture[i].Width / 100f, position[i].Y)), Color.White);
+                    spriteBatch.Draw(texture[i], ConvertUnits.ToDisplayUnits(new Vector2(xRef + (0 + j) * texture[i].Width / 100f, position[i].Y)), Color.White);
                 }
                 xRef *= i + 1;
             }
